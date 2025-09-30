@@ -1,0 +1,22 @@
+{
+	"folders": [
+		{
+			"name": "Rackmill",
+			"path": "/home/adam/Rackmill"
+		}
+	],
+	"settings": {
+		// Optional: prune typical VCS object noise
+		// Exclude everything in the entire system except /opt/devops.vm.rackmill.au
+		// to avoid performance issues with large repos
+		// https://code.visualstudio.com/docs/editor/codebasics#_file-watching
+		"files.watcherExclude": {
+			"**/.git/objects/**": true,
+			"**/.git/subtree-cache/**": true,
+			"**/.hg/store/**": true,
+			"**/node_modules/**": true,
+			"/**": true,
+			"/home/adam/Rackmill/**": false
+		}
+	}
+}

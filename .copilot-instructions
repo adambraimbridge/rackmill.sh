@@ -1,0 +1,66 @@
+# Rackmill Copilot Instructions
+
+## Purpose
+- Capture decisions and constraints so code-assist tools and collaborators follow the intended behavior.
+
+# Copilot Instructions
+Always consider the context of all files in the workspace.
+
+## Principles for contributors and AI assistants
+
+- Prefer minimal, clear, and fully valid code. Fewer lines that do the job correctly are better than verbose implementations.
+- Comments: Use short section labels sparingly to help AI edits.
+- Never introduce code that isn't 100% guaranteed valid in POSIX/bourne-compatible shells unless the change explicitly requires Bash features and the script declares `#!/usr/bin/env bash`.
+- Prioritize developer experience: pick readable names, small helper functions, and clear, actionable logging. Avoid clever one-liners that obscure intent.
+- When in doubt, prefer simple, explicit checks and safe defaults over clever shortcuts.
+
+## Key decisions and constraints
+
+- Hostname: The script intentionally sets the hostname to `rackmill` for branding and template consistency.
+- Supported Ubuntu releases for Rackmill (reference list):
+  - LTS Releases:
+    - Ubuntu 24.04.3 LTS (Noble Numbat)
+    - Ubuntu 22.04.5 LTS (Jammy Jellyfish)
+  - Interim Releases:
+    - Ubuntu 25.04 (Plucky Puffin)
+  - Extended Security Maintenance (ESM):
+    - Ubuntu 20.04.6 LTS (Focal Fossa)
+    - Ubuntu 18.04.6 LTS (Bionic Beaver)
+    - Ubuntu 16.04.7 LTS (Xenial Xerus)
+    - Ubuntu 14.04.6 LTS (Trusty Tahr)
+
+- Additional customizations: `rackmill.sh` Should remain baseline-only, and NOT be extended to apply template-specific customizations such as:
+  - SSH key injection / default authorized_keys
+  - Creation/configuration of default users
+  - Custom cloud-init snippets
+  - Additional branding files
+
+## Coding and operational guidance
+
+Shell style
+- Keep `#!/usr/bin/env bash` and `set -euo pipefail`.
+- Use the existing helper functions `section()` and `step()` for readable output.
+- Keep color constants (GREEN, CYAN, RESET) and the simple logging style.
+
+- APT sources and upgrades
+  - Populate `/etc/apt/sources.list` with the correct mirrors for that release.
+  - For template scripts that lock to a specific release (e.g., Xenial snapshot), do not enable distribution-upgrade to a newer release; only apply package updates within the release (`apt-get dist-upgrade` is acceptable for updates within the release but avoid `do-release-upgrade`).
+  - Clear `/var/lib/apt/lists/*` before running `apt-get update` in templating scenarios.
+
+- Upgrade-manager and notifications
+  - The script currently hides the upgrade banner and holds `update-manager-core` and `update-notifier-common` — preserve this behavior for template images unless instructed otherwise.
+
+- Timezone & locale
+  - Default timezone: `Australia/Perth` for Rackmill templates
+  - Locale: generate `en_AU.UTF-8` and set `LANG`/`LANGUAGE`/`LC_TIME` accordingly.
+
+ - Safety checks
+  - Keep the root UID check at the top: script should refuse to run unless run as root.
+
+## Progress tracking
+- Use `project-notes.md` to track decisions  and checklist updates.
+- Keep `project-notes.md` authoritative for project status.
+
+---
+
+# End of .copilot-instructions
