@@ -27,10 +27,13 @@ While the script runs, follow the interactive prompts to review and confirm each
 
 ## Quick Start
 
-1. Run the script directly from the repository. This does not save a local copy.
+1. Download and run the script directly.
 
 ```bash
-sudo bash <(wget -qO- https://raw.githubusercontent.com/adambraimbridge/rackmill.sh/main/rackmill.sh)
+clear; cd ~
+wget https://github.com/adambraimbridge/rackmill.sh/raw/refs/heads/main/rackmill.sh -O rackmill.sh
+chmod +x rackmill.sh
+sudo ./rackmill.sh
 ```
 
 ## Manual Setup (If Quick Start is not possible)
