@@ -18,8 +18,26 @@ Rackmill is a robust, operator-friendly Bash script for preparing Ubuntu systems
   - Uses `section()` and `step()` for clear, color-coded output.
   - All actions and errors are visible to the operator.
 
-## Usage
+
+# Usage
+
+As the Operator, observe the script as it runs and respond to any errors or prompts during execution.
+
+While the script runs, follow the interactive prompts to review and confirm each step. Manual approval is required, and intervention may be necessary.
+
+## Quick Start
+
+1. Run the script directly from the repository. This does not save a local copy.
+
+```bash
+sudo bash <(wget -qO- https://raw.githubusercontent.com/adambraimbridge/rackmill.sh/main/rackmill.sh)
+```
+
+## Manual Setup (If Quick Start is not possible)
+
 1. Copy the entire script content from the project file to your clipboard.
+
+The script will guide you through each step with interactive prompts. Manual intervention may be required for some actions.
 2. Open terminal and type `nano rackmill.sh` to create/open the file.
 3. In nano, press:
     `alt+\` (go to start)
@@ -34,8 +52,6 @@ Rackmill is a robust, operator-friendly Bash script for preparing Ubuntu systems
     `chmod +x rackmill.sh`
 6. Run it:
     `clear; ./rackmill.sh`
-
-While the script runs, follow the interactive prompts to review and confirm each step. Manual intervention may be required.
 
 ## Intended Use
 - Preparing Ubuntu VMs for imaging or template deployment
