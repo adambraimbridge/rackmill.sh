@@ -1,6 +1,6 @@
-# Rackmill Ubuntu Setup Script
+# Rackmill Ubuntu/Debian Setup Script
 
-Rackmill is a robust, operator-friendly Bash script for preparing Ubuntu systems for deployment, imaging, or template creation. It enforces canonical APT sources, configures system settings, and securely cleans sensitive data, with interactive prompts and clear logging throughout.
+Rackmill is a robust, operator-friendly Bash script for preparing Ubuntu and Debian systems for deployment, imaging, or template creation. It enforces canonical APT sources, configures system settings, and securely cleans sensitive data, with interactive prompts and clear logging throughout.
 
 ## Features
 - **Canonical APT Sources Enforcement:**
@@ -58,10 +58,26 @@ sudo ./rackmill.sh
 6. Run it:
     `clear; ./rackmill.sh`
 
+## Supported Versions
+
+### Ubuntu
+- **LTS Releases**: 14.04 (Trusty), 16.04 (Xenial), 18.04 (Bionic), 20.04 (Focal), 22.04 (Jammy), 24.04 (Noble)
+- **Interim Releases**: 25.04 (Plucky Puffin) and others
+- **Format**: Classic sources.list (≤23.04), DEB822 format (≥23.10)
+
+### Debian
+- **Version 9 (Stretch)**: Archived (uses archive.debian.org, no security updates)
+- **Version 10 (Buster)**: Archived (uses archive.debian.org, no security updates)
+- **Version 11 (Bullseye)**: Oldoldstable, LTS until 2031
+- **Version 12 (Bookworm)**: Oldstable
+- **Version 13 (Trixie)**: Current stable
+- **Format**: Archive repos (9-10), Classic sources.list (11), DEB822 format (≥12)
+- **Note**: Archived releases show APT warnings about missing Release files - this is expected
+
 ## Notes
-- Supports Ubuntu 14.04 (Trusty) and newer, including deb822 sources for 23.10+
 - No automatic changes to APT sources. Operator must manually edit if needed
 - All cleanup actions are irreversible and require explicit confirmation
+- Unopinionated about version selection - supports older releases for legacy template requirements
 
 ## License
 MIT License

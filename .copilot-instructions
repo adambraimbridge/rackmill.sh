@@ -17,17 +17,24 @@ Always consider the context of all files in the workspace.
 ## Key decisions and constraints
 
 - Hostname: The script intentionally sets the hostname to `rackmill` for branding and template consistency.
-- Supported Ubuntu releases for Rackmill (reference list):
-  - LTS Releases:
+- Supported releases for Rackmill (reference list):
+  - **Ubuntu LTS Releases**:
     - Ubuntu 24.04.3 LTS (Noble Numbat)
     - Ubuntu 22.04.5 LTS (Jammy Jellyfish)
-  - Interim Releases:
+  - **Ubuntu Interim Releases**:
     - Ubuntu 25.04 (Plucky Puffin)
-  - Extended Security Maintenance (ESM):
+  - **Ubuntu Extended Security Maintenance (ESM)**:
     - Ubuntu 20.04.6 LTS (Focal Fossa)
     - Ubuntu 18.04.6 LTS (Bionic Beaver)
     - Ubuntu 16.04.7 LTS (Xenial Xerus)
     - Ubuntu 14.04.6 LTS (Trusty Tahr)
+  - **Debian Current Releases**:
+    - Debian 13 (Trixie) - Current stable
+    - Debian 12 (Bookworm) - Oldstable
+    - Debian 11 (Bullseye) - Oldoldstable, LTS until 2031
+  - **Debian Archived (Extended LTS only)**:
+    - Debian 10 (Buster)
+    - Debian 9 (Stretch)
 
 - Additional customizations: `rackmill.sh` Should remain baseline-only, and NOT be extended to apply template-specific customizations such as:
   - SSH key injection / default authorized_keys
@@ -41,10 +48,16 @@ Shell style
 - Keep `#!/usr/bin/env bash` and `set -euo pipefail`.
 - Use the existing helper functions `section()` and `step()` for readable output.
 - Keep color constants (GREEN, CYAN, RESET) and the simple logging style.
+- Always respect the detected `OS_TYPE` variable ("ubuntu" or "debian") when making OS-specific decisions.
+- Use `VERSION_MAJOR` for version comparisons rather than string matching where possible.
 
 - APT sources and upgrades
-  - Populate `/etc/apt/sources.list` with the correct mirrors for that release.
-  - For template scripts that lock to a specific release (e.g., Xenial snapshot), do not enable distribution-upgrade to a newer release; only apply package updates within the release (`apt-get dist-upgrade` is acceptable for updates within the release but avoid `do-release-upgrade`).
+  - Populate `/etc/apt/sources.list` (or deb822 .sources files) with the correct mirrors for that release and OS type.
+  - Ubuntu: Use `archive.ubuntu.com` and `security.ubuntu.com` mirrors.
+  - Debian: Use `deb.debian.org/debian` and `security.debian.org/debian-security` mirrors.
+  - Ubuntu 23.10+ uses DEB822 format (`/etc/apt/sources.list.d/ubuntu.sources`).
+  - Debian 12+ uses DEB822 format (`/etc/apt/sources.list.d/debian.sources`).
+  - For template scripts that lock to a specific release, do not enable distribution-upgrade to a newer release; only apply package updates within the release (`apt-get dist-upgrade` is acceptable for updates within the release but avoid `do-release-upgrade`).
   - Clear `/var/lib/apt/lists/*` before running `apt-get update` in templating scenarios.
 
 - Upgrade-manager and notifications

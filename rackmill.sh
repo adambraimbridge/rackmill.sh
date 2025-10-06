@@ -2,7 +2,7 @@
 set -eEuo pipefail
 
 # =============================================
-# Rackmill Ubuntu Setup Script
+# Rackmill Ubuntu/Debian Setup Script
 # Operators will observe the script as it runs and respond to any errors or prompts during execution.
 # Always allow the operator to see what is happening. Allow standard console output to be visible at all times.
 # All functions should use `section()` and `step()` for logging, and avoid silent failures. 
@@ -37,6 +37,7 @@ declare -a CLEANUP_FILES=()
 declare -a CLEANUP_TRUNCATE=()
 
 # OS version information (populated by setup())
+OS_TYPE=""          # "ubuntu" or "debian"
 VERSION_ID=""
 VERSION_MAJOR=""
 CODENAME=""
@@ -88,23 +89,86 @@ PATTERNS=(
 )
 
 # Canonical sources generator for this release.
-# @see: https://releases.ubuntu.com/
+# @see: https://releases.ubuntu.com/ (Ubuntu)
+# @see: https://www.debian.org/releases/ (Debian)
+# @see: https://archive.debian.org/ (Archived Debian releases)
 #
-# This function must output the canonical APT sources for the detected Ubuntu version:
+# This function outputs the canonical APT sources for the detected OS and version:
+#
+# Ubuntu:
 #   - For Ubuntu 23.04 and earlier: output classic deb lines (sources.list format)
 #   - For Ubuntu 23.10 and newer:  output deb822 format (for /etc/apt/sources.list.d/ubuntu.sources)
+#
+# Debian:
+#   - For Debian 9-10 (archived): uses archive.debian.org (no signed Release files)
+#   - For Debian 11: output classic deb lines (sources.list format)
+#   - For Debian 12+:  output deb822 format (for /etc/apt/sources.list.d/debian.sources)
+#
+# Note: Archived Debian releases (9-10) use archive.debian.org which does not have
+# signed Release files. APT will show warnings about missing Release files - this is
+# expected and normal for archived releases.
+#
 # The output format must match the canonical file expected by apt_sources_prepare().
 #
 # Arguments:
-#   $1 (optional): Ubuntu codename (defaults to $CODENAME)
+#   $1 (optional): OS codename (defaults to $CODENAME)
+#   $2 (optional): OS type (defaults to $OS_TYPE)
 #
 # Outputs:
-#   Canonical APT sources in the correct format for the detected Ubuntu version
+#   Canonical APT sources in the correct format for the detected OS and version
 
 canonical_sources() {
   local codename="${1:-$CODENAME}"
-  if [[ "${VERSION_ID:-}" =~ ^23\.10|24\. ]]; then
-    cat <<EOF
+  local os_type="${2:-$OS_TYPE}"
+  
+  if [[ "$os_type" == "debian" ]]; then
+    # Debian sources - check if archived
+    local use_archive=false
+    if [[ "${VERSION_MAJOR}" -le 10 ]]; then
+      use_archive=true
+    fi
+    
+    if $use_archive; then
+      # Archived Debian releases (Stretch 9, Buster 10) use archive.debian.org
+      # Note: Archive repos don't have signed Release files (expected warnings)
+      local components="main contrib non-free"
+      cat <<EOF
+deb http://archive.debian.org/debian $codename $components
+deb http://archive.debian.org/debian ${codename}-backports $components
+deb http://archive.debian.org/debian-security ${codename}/updates $components
+EOF
+    elif [[ "${VERSION_MAJOR}" -ge 12 ]]; then
+      # DEB822 format for Debian 12+ (Bookworm and newer)
+      local components="main contrib non-free non-free-firmware"
+      # Debian 12+ includes non-free-firmware
+      cat <<EOF
+Types: deb
+URIs: http://deb.debian.org/debian
+Suites: $codename $codename-updates $codename-backports
+Components: $components
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+
+Types: deb
+URIs: http://security.debian.org/debian-security
+Suites: ${codename}-security
+Components: $components
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+EOF
+    else
+      # Classic sources.list format for Debian 11 (Bullseye)
+      local components="main contrib non-free"
+      cat <<EOF
+deb http://deb.debian.org/debian $codename $components
+deb http://deb.debian.org/debian ${codename}-updates $components
+deb http://deb.debian.org/debian ${codename}-backports $components
+deb http://security.debian.org/debian-security ${codename}-security $components
+EOF
+    fi
+  else
+    # Ubuntu sources
+    if [[ "${VERSION_ID:-}" =~ ^23\.10|24\. ]]; then
+      # DEB822 format for Ubuntu 23.10+
+      cat <<EOF
 Types: deb
 URIs: http://archive.ubuntu.com/ubuntu
 Suites: $codename $codename-updates $codename-backports
@@ -117,31 +181,36 @@ Suites: $codename-security
 Components: main restricted universe multiverse
 Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
 EOF
-  else
-    # Classic sources.list format
-    cat <<EOF
+    else
+      # Classic sources.list format for Ubuntu 23.04 and earlier
+      cat <<EOF
 deb https://archive.ubuntu.com/ubuntu $codename main restricted universe multiverse
 deb https://archive.ubuntu.com/ubuntu ${codename}-updates main restricted universe multiverse
 deb https://archive.ubuntu.com/ubuntu ${codename}-backports main restricted universe multiverse
 deb https://security.ubuntu.com/ubuntu ${codename}-security main restricted universe multiverse
 EOF
+    fi
   fi
 }
 
-# Ensure preconditions are met and detect OS release.-``
+# Ensure preconditions are met and detect OS release.
 #
-# Verifies the script is running as root, outputs network info, and detects the Ubuntu
-# version and codename. Sets global variables VERSION_ID, VERSION_MAJOR,
-# and CODENAME for use by other functions.
+# Verifies the script is running as root, outputs network info, and detects the OS type
+# (Ubuntu or Debian), version, and codename. Sets global variables OS_TYPE, VERSION_ID,
+# VERSION_MAJOR, and CODENAME for use by other functions.
+#
+# Supported versions:
+#   Ubuntu: 14.04+ (Trusty and newer)
+#   Debian: 9+ (Stretch and newer)
 #
 # Outputs:
-#   Sets VERSION_ID, VERSION_MAJOR, CODENAME globals
+#   Sets OS_TYPE, VERSION_ID, VERSION_MAJOR, CODENAME globals
 #   Logs detected OS information via section() and step()
 #
 # Exit status:
 #   0 on success
 #   1 if not running as root
-#   2 if OS detection fails
+#   2 if OS detection fails or unsupported OS/version
 
 setup() {
   section "Initial Setup and Detection"
@@ -166,24 +235,68 @@ setup() {
   cat /etc/os-release
   if [[ -f /etc/os-release ]]; then
     . /etc/os-release
+    
+    # Detect OS type
+    OS_TYPE="${ID:-}"
+    if [[ "$OS_TYPE" != "ubuntu" && "$OS_TYPE" != "debian" ]]; then
+      error "Unsupported OS detected: $OS_TYPE. This script supports Ubuntu and Debian only. Exiting."
+      exit 2
+    fi
+    
     VERSION_ID="${VERSION_ID:-}"
-    # For older Ubuntu (like 14.04), UBUNTU_CODENAME may not exist.
-    # Try to extract codename from VERSION or PRETTY_NAME if UBUNTU_CODENAME is empty.
-    CODENAME="${UBUNTU_CODENAME:-}"
-    if [[ -z "$CODENAME" ]]; then
-      # Try to extract from VERSION or PRETTY_NAME
-      if [[ -n "${VERSION:-}" ]]; then
-        CODENAME="$(echo "$VERSION" | grep -oP '(?<=, ).*' | awk '{print tolower($1)}')"
-      elif [[ -n "${PRETTY_NAME:-}" ]]; then
-        CODENAME="$(echo "$PRETTY_NAME" | grep -oP '(?<=, ).*' | awk '{print tolower($1)}')"
+    
+    # Extract codename based on OS type
+    if [[ "$OS_TYPE" == "ubuntu" ]]; then
+      # For older Ubuntu (like 14.04), UBUNTU_CODENAME may not exist.
+      # Try to extract codename from VERSION or PRETTY_NAME if UBUNTU_CODENAME is empty.
+      CODENAME="${UBUNTU_CODENAME:-}"
+      if [[ -z "$CODENAME" ]]; then
+        # Try to extract from VERSION or PRETTY_NAME
+        if [[ -n "${VERSION:-}" ]]; then
+          CODENAME="$(echo "$VERSION" | grep -oP '(?<=\()[^)]+' | awk '{print tolower($1)}')"
+        elif [[ -n "${PRETTY_NAME:-}" ]]; then
+          CODENAME="$(echo "$PRETTY_NAME" | grep -oP '(?<=\()[^)]+' | awk '{print tolower($1)}')"
+        fi
+      fi
+    elif [[ "$OS_TYPE" == "debian" ]]; then
+      # Debian uses VERSION_CODENAME
+      CODENAME="${VERSION_CODENAME:-}"
+      if [[ -z "$CODENAME" ]]; then
+        # Try to extract from VERSION field as fallback
+        if [[ -n "${VERSION:-}" ]]; then
+          CODENAME="$(echo "$VERSION" | grep -oP '(?<=\()[^)]+' | awk '{print tolower($1)}')"
+        fi
       fi
     fi
+    
     if [[ -z "$VERSION_ID" || -z "$CODENAME" ]]; then
       error "Failed to detect OS version or codename. Exiting."
       exit 2
     fi
+    
     VERSION_MAJOR="${VERSION_ID%%.*}"
-    step "Detected Ubuntu $VERSION_ID ($CODENAME)."
+    
+    # Validate supported versions
+    if [[ "$OS_TYPE" == "ubuntu" ]]; then
+      if [[ "$VERSION_MAJOR" -lt 14 ]]; then
+        error "Ubuntu $VERSION_ID is not supported. Minimum version: 14.04 (Trusty). Exiting."
+        exit 2
+      fi
+      step "Detected Ubuntu $VERSION_ID ($CODENAME)."
+    elif [[ "$OS_TYPE" == "debian" ]]; then
+      if [[ "$VERSION_MAJOR" -lt 9 ]]; then
+        error "Debian $VERSION_ID is not supported. Minimum version: 9 (Stretch). Exiting."
+        exit 2
+      fi
+      # Inform operator about archived versions
+      if [[ "$VERSION_MAJOR" -le 10 ]]; then
+        step "⚠️  Detected Debian $VERSION_ID ($CODENAME) - ARCHIVED RELEASE"
+        step "    This version uses archive.debian.org (no security updates)."
+        step "    APT will show warnings about missing Release files - this is expected."
+      else
+        step "Detected Debian $VERSION_ID ($CODENAME)."
+      fi
+    fi
   else
     error "/etc/os-release not found. Unable to detect OS. Exiting."
     exit 2
@@ -193,20 +306,23 @@ setup() {
 
 # Audit apt sources to enforce canonical configuration.
 #
-# This function enforces rules for canonical APT source files.
+# This function enforces rules for canonical APT source files for both Ubuntu and Debian:
+#
+# Ubuntu:
 #   - For Ubuntu 23.04 and earlier: /etc/apt/sources.list
 #   - For Ubuntu 23.10 and newer:   /etc/apt/sources.list.d/ubuntu.sources (deb822 format)
 #
-# For Ubuntu 23.10 and newer: (deb822 format)
-#   - The canonical source file is /etc/apt/sources.list.d/ubuntu.sources.
-#   - /etc/apt/sources.list may exist by default, but should not contain any deb sources. It typically contains only a comment:
-#       "# Ubuntu sources have moved to /etc/apt/sources.list.d/ubuntu.sources"
-#   - The script does NOT error if /etc/apt/sources.list exists, but will error if it contains any deb lines.
-#   - The script will echo the contents of /etc/apt/sources.list.d/ubuntu.sources 
-#       and prompt the operator to review & confirm before proceeding, rather than 
-#       performing an automated comparison.
+# Debian:
+#   - For Debian 9-11: /etc/apt/sources.list
+#   - For Debian 12+:  /etc/apt/sources.list.d/debian.sources (deb822 format)
 #
-# For Ubuntu 23.04 and earlier: (classic format)
+# For deb822 format (Ubuntu 23.10+ or Debian 12+):
+#   - The canonical source file is /etc/apt/sources.list.d/ubuntu.sources (Ubuntu) or debian.sources (Debian).
+#   - /etc/apt/sources.list may exist by default, but should not contain any deb sources.
+#   - The script does NOT error if /etc/apt/sources.list exists, but will error if it contains any deb lines.
+#   - The script will echo the contents of the canonical file and prompt the operator to review & confirm.
+#
+# For classic format (Ubuntu 23.04 and earlier, or Debian 9-11):
 #   - The canonical source file is /etc/apt/sources.list (classic format).
 #   - The script compares the normalized deb lines to the expected canonical configuration.
 #
@@ -228,14 +344,25 @@ setup() {
 apt_sources_prepare() {
   section "Auditing APT Sources"
 
-  # Determine canonical file for this Ubuntu version
+  # Determine canonical file based on OS type and version
   local canonical_file
   local is_deb822=false
-  if [[ "${VERSION_ID:-}" =~ ^23\.10|24\. ]]; then
-    canonical_file="/etc/apt/sources.list.d/ubuntu.sources"
-    is_deb822=true
+  
+  if [[ "$OS_TYPE" == "debian" ]]; then
+    if [[ "${VERSION_MAJOR}" -ge 12 ]]; then
+      canonical_file="/etc/apt/sources.list.d/debian.sources"
+      is_deb822=true
+    else
+      canonical_file="/etc/apt/sources.list"
+    fi
   else
-    canonical_file="/etc/apt/sources.list"
+    # Ubuntu
+    if [[ "${VERSION_ID:-}" =~ ^23\.10|24\. ]]; then
+      canonical_file="/etc/apt/sources.list.d/ubuntu.sources"
+      is_deb822=true
+    else
+      canonical_file="/etc/apt/sources.list"
+    fi
   fi
 
   # Enforce canonical file rules
@@ -247,9 +374,14 @@ apt_sources_prepare() {
         exit 1
       fi
     fi
-  else # classic 
+  else # classic
+    # When using classic sources.list, deb822 files should not exist
     if [[ -f /etc/apt/sources.list.d/ubuntu.sources ]]; then
       error "/etc/apt/sources.list.d/ubuntu.sources should not exist when using classic sources.list. Please remove it."
+      exit 1
+    fi
+    if [[ -f /etc/apt/sources.list.d/debian.sources ]]; then
+      error "/etc/apt/sources.list.d/debian.sources should not exist when using classic sources.list. Please remove it."
       exit 1
     fi
   fi
@@ -264,14 +396,16 @@ apt_sources_prepare() {
   local offending_files=()
   shopt -s nullglob
   for f in /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do
-    # Only allow the canonical file
+    # Only allow the canonical file for this OS
     if $is_deb822; then
-      [[ "$f" == "/etc/apt/sources.list.d/ubuntu.sources" ]] && continue
-    else
-      # For classic, no .sources files allowed, and .list files only if not ubuntu.sources
-      [[ "$f" == "/etc/apt/sources.list.d/ubuntu.sources" ]] && continue
-      # Allow no .sources at all
+      # Allow only the canonical deb822 file for this OS type
+      if [[ "$OS_TYPE" == "debian" && "$f" == "/etc/apt/sources.list.d/debian.sources" ]]; then
+        continue
+      elif [[ "$OS_TYPE" == "ubuntu" && "$f" == "/etc/apt/sources.list.d/ubuntu.sources" ]]; then
+        continue
+      fi
     fi
+    # If we reach here, this file is non-canonical
     offending_files+=("$f")
   done
   shopt -u nullglob
@@ -338,13 +472,22 @@ apt_sources_prepare() {
 apt_sources_apply() {
   if $APT_SOURCES_CHANGES_REQUIRED; then
     section "Manual APT Sources Intervention Required"
-    error "APT sources do not match the canonical configuration for Ubuntu $VERSION_ID ($CODENAME)."
-    # Determine canonical file for this Ubuntu version
+    error "APT sources do not match the canonical configuration for $OS_TYPE $VERSION_ID ($CODENAME)."
+    # Determine canonical file based on OS type and version
     local canonical_file
-    if [[ "${VERSION_ID:-}" =~ ^23\.10|24\. ]]; then
-      canonical_file="/etc/apt/sources.list.d/ubuntu.sources"
+    if [[ "$OS_TYPE" == "debian" ]]; then
+      if [[ "${VERSION_MAJOR}" -ge 12 ]]; then
+        canonical_file="/etc/apt/sources.list.d/debian.sources"
+      else
+        canonical_file="/etc/apt/sources.list"
+      fi
     else
-      canonical_file="/etc/apt/sources.list"
+      # Ubuntu
+      if [[ "${VERSION_ID:-}" =~ ^23\.10|24\. ]]; then
+        canonical_file="/etc/apt/sources.list.d/ubuntu.sources"
+      else
+        canonical_file="/etc/apt/sources.list"
+      fi
     fi
     # Always create a backup before requiring manual intervention (only for classic sources.list)
     if [[ "$canonical_file" == "/etc/apt/sources.list" && -f /etc/apt/sources.list ]]; then
@@ -375,6 +518,9 @@ apt_sources_apply() {
 # Performs basic smoke checks to verify package system health.
 # Clears stale indices before updating.
 #
+# For archived Debian releases (9-10), adds --allow-unauthenticated flag
+# since archive.debian.org repositories don't have valid GPG signatures.
+#
 # Outputs:
 #   Standard apt-get console output
 #   Progress messages via section() and step() calls
@@ -386,11 +532,18 @@ apt_sources_apply() {
 aptdate() {
   section "Updating and Upgrading Packages"
 
+  # Determine if we need --allow-unauthenticated for archived releases
+  local apt_flags="-y"
+  if [[ "$OS_TYPE" == "debian" && "${VERSION_MAJOR}" -le 10 ]]; then
+    apt_flags="-y --allow-unauthenticated"
+    step "Note: Using --allow-unauthenticated for archived Debian release (expected for archive.debian.org)"
+  fi
+
   apt-get autoremove --purge -y
   apt-get clean
   apt-get update
-  apt-get dist-upgrade -y
-  apt-get autoremove --purge -y
+  apt-get dist-upgrade $apt_flags
+  apt-get autoremove --purge $apt_flags
   apt-get autoclean
 
   step "Package update and upgrade completed successfully."
@@ -588,13 +741,17 @@ configure() {
 }
 
 
-# Ensure systemd journal directory exists and is properly configured (systemd-based Ubuntu only).
+# Ensure systemd journal directory exists and is properly configured (systemd-based systems only).
 #
-# This function only runs on Ubuntu 15.04 and newer (systemd-based). It creates /run/log/journal if missing,
-# restores correct permissions using systemd-tmpfiles, and restarts systemd-journald. This prevents errors
-# like "Failed to open runtime journal" on boot, especially in cloned or templated VMs.
+# This function runs on systemd-based systems:
+#   - Ubuntu 15.04 and newer (systemd-based)
+#   - Debian 8 (Jessie) and newer (systemd-based)
 #
-# On older Ubuntu versions (e.g., 14.04, Upstart-based), this function is skipped.
+# It creates /run/log/journal if missing, restores correct permissions using systemd-tmpfiles,
+# and restarts systemd-journald. This prevents errors like "Failed to open runtime journal"
+# on boot, especially in cloned or templated VMs.
+#
+# On older versions (Ubuntu 14.04 Upstart-based, or Debian 7 and older), this function is skipped.
 #
 # Outputs:
 #   Logs progress via section() and step() calls
@@ -607,14 +764,28 @@ configure() {
 journal() {
   section "Ensuring machine-id and systemd journal is properly configured"
 
-  # Only run on systemd-based Ubuntu (15.04+)
-  if [[ -z "$VERSION_ID" ]]; then
-    error "VERSION_ID not set. Run setup() first. Skipping journal setup."
+  # Only run on systemd-based systems
+  if [[ -z "$VERSION_ID" || -z "$OS_TYPE" ]]; then
+    error "VERSION_ID or OS_TYPE not set. Run setup() first. Skipping journal setup."
     return 0
   fi
+  
   local major_version="${VERSION_ID%%.*}"
-  if [[ "$major_version" -lt 15 ]]; then
-    step "Ubuntu $VERSION_ID detected (Upstart-based, no systemd). Skipping journal setup."
+  local skip_journal=false
+  
+  if [[ "$OS_TYPE" == "ubuntu" ]]; then
+    if [[ "$major_version" -lt 15 ]]; then
+      step "Ubuntu $VERSION_ID detected (Upstart-based, no systemd). Skipping journal setup."
+      skip_journal=true
+    fi
+  elif [[ "$OS_TYPE" == "debian" ]]; then
+    if [[ "$major_version" -lt 8 ]]; then
+      step "Debian $VERSION_ID detected (no systemd). Skipping journal setup."
+      skip_journal=true
+    fi
+  fi
+  
+  if $skip_journal; then
     return 0
   fi
 
@@ -686,7 +857,7 @@ main() {
   # Clear trap on successful completion
   trap - ERR
 
-  step "Rackmill Ubuntu setup completed."
+  step "Rackmill setup completed."
   exit 0
 }
 

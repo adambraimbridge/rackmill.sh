@@ -8,7 +8,9 @@ template consistency across Rackmill VM images.
 ## Q2 — Is hardcoding Ubuntu Xenial (16.04) sources intentional, or should other versions be supported?
 
 **A2:** Yes — other versions should be supported.
-Rackmill (overall) supports the following Ubuntu releases:
+Rackmill (overall) supports the following releases:
+
+### Ubuntu Releases
 
 - **Interim Releases**
   - Ubuntu 25.04 (Plucky Puffin)
@@ -22,6 +24,18 @@ Rackmill (overall) supports the following Ubuntu releases:
   - Ubuntu 18.04.6 LTS (Bionic Beaver)
   - Ubuntu 16.04.7 LTS (Xenial Xerus)
   - Ubuntu 14.04.6 LTS (Trusty Tahr)
+
+### Debian Releases
+
+- **Current Releases**
+  - Debian 13 (Trixie) - Current stable
+  - Debian 12 (Bookworm) - Oldstable
+  - Debian 11 (Bullseye) - Oldoldstable, LTS until 2031
+
+- **Archived Releases (Uses archive.debian.org)**
+  - Debian 10 (Buster) - No security updates, archive.debian.org only
+  - Debian 9 (Stretch) - No security updates, archive.debian.org only
+  - Note: APT warnings about missing Release files are expected for archived releases
 
 ## Q3 — Are further customizations (e.g., SSH keys, branding, user accounts) required, or is this only for baseline OS setup?
 
@@ -67,7 +81,9 @@ This script is intended to be executed interactively by a human who has SSH'd in
 
 ## Checklist
 - [x] Implement cleanup steps in `rackmill.sh` with safe defaults (interactive confirmation at end)
-- [ ] Support multi-release sources by auto-detecting the Ubuntu release 
+- [x] Support multi-release sources by auto-detecting the Ubuntu release
+- [x] Add Debian 9-15 support with OS type detection
+- [ ] Test on actual Debian systems (9, 11, 12, 13)
 - [ ] Add shellcheck linting to validate scripts
 
 ## Function-level pseudocode map
