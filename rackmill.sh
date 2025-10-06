@@ -709,26 +709,17 @@ cleanup_apply() {
 # Configure system locale, timezone, hostname, and keyboard layout.
 #
 # This function performs the following system configuration steps:
-#   - Runs keyboard configuration (dpkg-reconfigure keyboard-configuration)
-#   - Sets hostname to "rackmill" and updates /etc/hosts
 #   - Sets timezone to Australia/Perth
 #   - Sets locale to en_AU.UTF-8
-#   - Cleans GRUB keyboard boot parameter (removes keyboard= from /etc/default/grub if present)
 #   - Regenerates SSH host keys
-#
-# The GRUB keyboard parameter is removed following industry standard practice where
-# keyboard layout should be handled by runtime configuration files (/etc/default/keyboard)
-# rather than boot parameters. A backup of /etc/default/grub is created before any changes.
-#
+#   - Runs keyboard configuration (dpkg-reconfigure keyboard-configuration)
 # Note: Changes to hostname, locale, and keyboard may require session restart to take full effect.
-# GRUB changes require a reboot to take effect.
 #
 # Outputs:
 #   Configuration changes via step() calls
 #   Current locale and timezone status
 #   Keyboard configuration prompt
-#   GRUB backup path (if keyboard parameter was found and removed)
-#   Reminder about session restart and reboot requirements
+#   Reminder about session restart requirement
 #
 # Exit status:
 #   0 on success
@@ -755,38 +746,11 @@ configure() {
   locale-gen en_AU.UTF-8
   update-locale LANG=en_AU.UTF-8
 
-  step "Cleaning GRUB keyboard boot parameter ..."
-  if [[ -f /etc/default/grub ]]; then
-    # Remove any keyboard= parameter from GRUB_CMDLINE_LINUX_DEFAULT
-    # Industry standard: keyboard layout is handled by runtime config, not boot parameters
-    if grep -q "keyboard=" /etc/default/grub; then
-      # Create backup
-      local backup_file="/etc/default/grub.bak.$(date +%Y%m%d%H%M%S)"
-      cp /etc/default/grub "$backup_file"
-      BACKUPS+=("$backup_file")
-      step "Created backup of /etc/default/grub at $backup_file."
-      
-      # Remove keyboard= parameter (and any trailing/leading spaces)
-      sed -i 's/\s*keyboard=[^ "]*\s*/ /g' /etc/default/grub
-      sed -i 's/  / /g' /etc/default/grub  # Clean up double spaces
-      
-      step "Updating GRUB configuration ..."
-      update-grub
-      
-      step "GRUB keyboard parameter removed. Reboot required for boot parameter changes."
-    else
-      step "No keyboard parameter found in GRUB config (already clean)."
-    fi
-  else
-    step "No /etc/default/grub found. Skipping GRUB keyboard cleanup."
-  fi
-
   step "Regenerating SSH host keys ..."
   rm -f /etc/ssh/ssh_host_*
   dpkg-reconfigure openssh-server
 
   step "Configuration changes applied. Locale and hostname won't take effect until the next session restart."
-  step "For GRUB changes to take effect, a reboot is required."
 }
 
 

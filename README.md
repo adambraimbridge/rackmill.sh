@@ -37,7 +37,7 @@ While the script runs, follow the interactive prompts to review and confirm each
 clear; cd ~
 wget https://github.com/adambraimbridge/rackmill.sh/raw/refs/heads/main/rackmill.sh -O rackmill.sh
 chmod +x rackmill.sh
-sudo ./rackmill.sh
+./rackmill.sh
 ```
 
 ## Manual Setup (If Quick Start is not possible)
