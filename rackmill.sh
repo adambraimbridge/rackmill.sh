@@ -541,7 +541,28 @@ aptdate() {
 
   apt-get autoremove --purge -y
   apt-get clean
+  
+  # Clean all apt cache to prevent corruption errors (especially for archived repos)
+  step "Cleaning APT cache ..."
+  rm -rf /var/lib/apt/lists/*
+  mkdir -p /var/lib/apt/lists/partial
+  
+  # Run apt-get update, retry once if it fails (common with archived repos)
+  step "Running apt-get update ..."
+  set +e  # Temporarily disable exit-on-error for retry logic
   apt-get update
+  local update_status=$?
+  set -e  # Re-enable exit-on-error
+  
+  if [[ $update_status -ne 0 ]]; then
+    step "apt-get update failed (exit code: $update_status), cleaning cache and retrying once more ..."
+    rm -rf /var/lib/apt/lists/*
+    mkdir -p /var/lib/apt/lists/partial
+    apt-get clean
+    sleep 2  # Brief pause before retry
+    apt-get update  # If this fails, the script will exit due to set -e
+  fi
+  
   apt-get dist-upgrade $apt_flags
   apt-get autoremove --purge $apt_flags
   apt-get autoclean
@@ -730,6 +751,10 @@ configure() {
   date # show current date/time for verification
 
   step "Setting locale to en_AU.UTF-8 ..."
+  # Ensure en_AU.UTF-8 is uncommented in /etc/locale.gen (Debian requirement)
+  if [[ -f /etc/locale.gen ]]; then
+    sed -i 's/^# *en_AU.UTF-8/en_AU.UTF-8/' /etc/locale.gen
+  fi
   locale-gen en_AU.UTF-8
   update-locale LANG=en_AU.UTF-8
 

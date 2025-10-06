@@ -6,12 +6,36 @@ ______           _              _ _ _
 | |\ \ (_| | (__|   <| | | | | | | | |
 \_| \_\__,_|\___|_|\_\_| |_| |_|_|_|_|
 </pre>
+Debian 12.12 LTS (Bookworm)
 
-Ubuntu 25.04 (Plucky Puffin) › x64
-Ubuntu 24.04.3 LTS (Noble Numbat) › x64
-Ubuntu 22.04.5 LTS (Jammy Jellyfish) › x64
-Ubuntu 20.04.6 LTS (Focal Fossa) › x64
-Ubuntu 18.04.6 LTS (Bionic Beaver) › x64
-Ubuntu 16.04.7 LTS (Xenial Xerus) › x64
-Ubuntu 14.04.6 LTS (Trusty Tahr) › x64
+Debian 13.1 Stable (Trixie)
+Debian 12.12 LTS (Bookworm)
+Debian 11.11 LTS (Bullseye)
+Debian 10.13 LTS (Buster)
+Debian 9.13 LTS (Stretch)
+
+Debian-13.1-trixie
+Debian-12.12-bookworm
+Debian-11.11-bullseye
+Debian-10.13-buster
+Debian-9.13-stretch
+
+Ubuntu 25.04 (Plucky Puffin)
+Ubuntu 24.04.3 LTS (Noble Numbat)
+Ubuntu 22.04.5 LTS (Jammy Jellyfish)
+Ubuntu 20.04.6 LTS (Focal Fossa)
+Ubuntu 18.04.6 LTS (Bionic Beaver)
+Ubuntu 16.04.7 LTS (Xenial Xerus)
+Ubuntu 14.04.6 LTS (Trusty Tahr)
+
+Ubuntu-25.04-plucky
+Ubuntu-24.04-noble
+Ubuntu-22.04-jammy
+Ubuntu-20.04-focal
+Ubuntu-18.04-bionic
+Ubuntu-16.04-xenial
+Ubuntu-14.04-trusty
+
+
+
 
