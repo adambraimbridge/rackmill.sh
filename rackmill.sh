@@ -706,32 +706,29 @@ cleanup_apply() {
   step "Cleanup actions completed successfully."
 }
 
-# Generate final summary and recovery instructions.
-#
-# Provides a concise summary of all actions performed, lists
-# created backups, and suggests post-run verification steps.
-# Includes recovery hints if any issues were detected.
-#
-# Outputs:
-#   Summary of backups created (from BACKUPS array)
-#
-# Exit status:
-#   0 always
-
 # Configure system locale, timezone, hostname, and keyboard layout.
 #
 # This function performs the following system configuration steps:
+#   - Runs keyboard configuration (dpkg-reconfigure keyboard-configuration)
+#   - Sets hostname to "rackmill" and updates /etc/hosts
 #   - Sets timezone to Australia/Perth
 #   - Sets locale to en_AU.UTF-8
+#   - Cleans GRUB keyboard boot parameter (removes keyboard= from /etc/default/grub if present)
 #   - Regenerates SSH host keys
-#   - Runs keyboard configuration (dpkg-reconfigure keyboard-configuration)
+#
+# The GRUB keyboard parameter is removed following industry standard practice where
+# keyboard layout should be handled by runtime configuration files (/etc/default/keyboard)
+# rather than boot parameters. A backup of /etc/default/grub is created before any changes.
+#
 # Note: Changes to hostname, locale, and keyboard may require session restart to take full effect.
+# GRUB changes require a reboot to take effect.
 #
 # Outputs:
 #   Configuration changes via step() calls
 #   Current locale and timezone status
 #   Keyboard configuration prompt
-#   Reminder about session restart requirement
+#   GRUB backup path (if keyboard parameter was found and removed)
+#   Reminder about session restart and reboot requirements
 #
 # Exit status:
 #   0 on success
@@ -862,6 +859,17 @@ journal() {
   step "Journal configuration completed."
 }
 
+# Generate final summary and recovery instructions.
+#
+# Provides a concise summary of all actions performed, lists
+# created backups, and suggests post-run verification steps.
+# Includes recovery hints if any issues were detected.
+#
+# Outputs:
+#   Summary of backups created (from BACKUPS array)
+#
+# Exit status:
+#   0 always
 
 report() {
   section "Final Report"
