@@ -156,11 +156,11 @@ Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
 EOF
     else
       # Classic sources.list format for Debian 11 (Bullseye)
+      # Note: Debian 11 (bullseye) backports are no longer available
       local components="main contrib non-free"
       cat <<EOF
 deb http://deb.debian.org/debian $codename $components
 deb http://deb.debian.org/debian ${codename}-updates $components
-deb http://deb.debian.org/debian ${codename}-backports $components
 deb http://security.debian.org/debian-security ${codename}-security $components
 EOF
     fi
